@@ -100,4 +100,4 @@ python examples/batch_research.py
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE)
