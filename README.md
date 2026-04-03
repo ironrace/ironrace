@@ -40,7 +40,7 @@ pip install ironrace
 
 Development:
 ```bash
-git clone https://github.com/yourorg/ironrace.git
+git clone https://github.com/ironrace/ironrace.git
 cd ironrace
 pip install maturin
 maturin develop --release

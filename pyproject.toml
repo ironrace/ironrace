@@ -9,6 +9,13 @@ description = "Rust-powered context engine for AI agent pipelines"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
+keywords = ["rust", "llm", "rag", "vector-search", "context-engine", "pyo3"]
+
+[project.urls]
+Homepage = "https://github.com/ironrace/ironrace"
+Repository = "https://github.com/ironrace/ironrace"
+Issues = "https://github.com/ironrace/ironrace/issues"
+
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
