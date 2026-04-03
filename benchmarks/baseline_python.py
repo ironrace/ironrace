@@ -43,7 +43,7 @@ def generate_document():
 
 
 def generate_api_response(n_results=20):
-    """Simulate a Crunchbase-style API response."""
+    """Simulate a competitor data API response."""
     return {
         "status": "ok",
         "count": n_results,
