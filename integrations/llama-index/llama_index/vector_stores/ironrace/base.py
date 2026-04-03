@@ -1,10 +1,13 @@
 """IronRace vector store — Rust HNSW backend for LlamaIndex."""
 
+import json
 import logging
+import os
 from collections import defaultdict
-from typing import Any, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
-from llama_index.core.schema import BaseNode
+import fsspec
+from llama_index.core.schema import BaseNode, TextNode
 from llama_index.core.vector_stores.types import (
     BasePydanticVectorStore,
     FilterCondition,
@@ -17,6 +20,10 @@ from llama_index.core.vector_stores.types import (
 from pydantic import Field, PrivateAttr
 
 from ironrace import VectorIndex
+
+DEFAULT_PERSIST_DIR = "./storage"
+NAMESPACE_SEP = "__"
+IRONRACE_PERSIST_FNAME = "ironrace_vector_store.json"
 
 logger = logging.getLogger(__name__)
 
@@ -259,3 +266,122 @@ class IronRaceVectorStore(BasePydanticVectorStore):
             return not value
         else:
             return True
+
+    # ── Persistence ──
+
+    def persist(
+        self,
+        persist_path: str = os.path.join(DEFAULT_PERSIST_DIR, IRONRACE_PERSIST_FNAME),
+        fs: Optional[fsspec.AbstractFileSystem] = None,
+    ) -> None:
+        """Persist the vector store to disk.
+
+        Saves node data and embeddings as JSON. On load, the Rust HNSW
+        index is rebuilt from the saved embeddings (~1s for typical RAG sizes).
+        """
+        fs = fs or fsspec.filesystem("file")
+        dirpath = os.path.dirname(persist_path)
+        if dirpath and not fs.exists(dirpath):
+            fs.makedirs(dirpath)
+
+        # Serialize nodes to dicts
+        node_dicts = {}
+        for nid, node in self._nodes.items():
+            node_dicts[nid] = node.to_dict()
+
+        data = {
+            "embeddings": self._embeddings,
+            "node_ids": self._node_ids,
+            "nodes": node_dicts,
+            "ref_doc_id_to_node_ids": dict(self._ref_doc_id_to_node_ids),
+            "embedding_dim": self._embedding_dim,
+            "ef_construction": self.ef_construction,
+        }
+
+        with fs.open(persist_path, "w") as f:
+            json.dump(data, f)
+
+        logger.info(
+            f"Persisted IronRaceVectorStore with {len(self._node_ids)} nodes "
+            f"to {persist_path}"
+        )
+
+    @classmethod
+    def from_persist_path(
+        cls,
+        persist_path: str,
+        fs: Optional[fsspec.AbstractFileSystem] = None,
+    ) -> "IronRaceVectorStore":
+        """Load a persisted vector store from a file path.
+
+        Rebuilds the Rust HNSW index from saved embeddings.
+        """
+        fs = fs or fsspec.filesystem("file")
+        if not fs.exists(persist_path):
+            raise ValueError(f"No IronRaceVectorStore found at {persist_path}")
+
+        logger.info(f"Loading IronRaceVectorStore from {persist_path}")
+        with fs.open(persist_path, "rb") as f:
+            data = json.load(f)
+
+        store = cls(ef_construction=data.get("ef_construction", 40))
+        store._embeddings = data["embeddings"]
+        store._node_ids = data["node_ids"]
+        store._embedding_dim = data.get("embedding_dim")
+
+        # Restore nodes from dicts
+        for nid, node_dict in data["nodes"].items():
+            store._nodes[nid] = TextNode.from_dict(node_dict)
+
+        # Restore ref_doc_id mapping
+        for ref_id, nids in data.get("ref_doc_id_to_node_ids", {}).items():
+            store._ref_doc_id_to_node_ids[ref_id] = nids
+
+        # Mark dirty so HNSW index rebuilds on first query
+        store._dirty = True
+
+        logger.info(
+            f"Loaded {len(store._node_ids)} nodes, "
+            f"HNSW index will rebuild on first query"
+        )
+        return store
+
+    @classmethod
+    def from_persist_dir(
+        cls,
+        persist_dir: str = DEFAULT_PERSIST_DIR,
+        namespace: str = "default",
+        fs: Optional[fsspec.AbstractFileSystem] = None,
+    ) -> "IronRaceVectorStore":
+        """Load from a persist directory."""
+        persist_fname = f"{namespace}{NAMESPACE_SEP}{IRONRACE_PERSIST_FNAME}"
+        persist_path = os.path.join(persist_dir, persist_fname)
+        return cls.from_persist_path(persist_path, fs=fs)
+
+    @classmethod
+    def from_namespaced_persist_dir(
+        cls,
+        persist_dir: str = DEFAULT_PERSIST_DIR,
+        fs: Optional[fsspec.AbstractFileSystem] = None,
+    ) -> Dict[str, "BasePydanticVectorStore"]:
+        """Load all namespaced stores from a directory."""
+        listing_fn = os.listdir if fs is None else fs.listdir
+        stores: Dict[str, BasePydanticVectorStore] = {}
+
+        try:
+            for fname in listing_fn(persist_dir):
+                if isinstance(fname, dict):
+                    fname = fname.get("name", "")
+                if fname.endswith(IRONRACE_PERSIST_FNAME):
+                    namespace = fname.split(NAMESPACE_SEP)[0]
+                    if namespace == IRONRACE_PERSIST_FNAME:
+                        namespace = "default"
+                    stores[namespace] = cls.from_persist_dir(
+                        persist_dir=persist_dir, namespace=namespace, fs=fs
+                    )
+        except Exception:
+            stores["default"] = cls.from_persist_dir(
+                persist_dir=persist_dir, fs=fs
+            )
+
+        return stores

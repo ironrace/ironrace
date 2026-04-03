@@ -16,6 +16,11 @@ from llama_index.core.vector_stores.types import (
 from llama_index.vector_stores.ironrace import IronRaceVectorStore
 
 
+@pytest.fixture
+def tmp_persist_path(tmp_path):
+    return str(tmp_path / "test_store.json")
+
+
 def _make_node(text="hello", dim=64, node_id=None, metadata=None, ref_doc_id=None, seed=None):
     """Create a TextNode with a random unit-vector embedding."""
     if seed is not None:
@@ -278,3 +283,79 @@ class TestMetadataFilters:
         result = store.query(query)
         categories = {n.metadata["cat"] for n in result.nodes}
         assert categories <= {"tech", "health"}
+
+
+class TestPersistence:
+    def test_persist_and_load(self, tmp_persist_path):
+        store = IronRaceVectorStore()
+        nodes = [
+            _make_node(seed=0, node_id="n0", metadata={"topic": "ai"}),
+            _make_node(seed=1, node_id="n1", metadata={"topic": "ml"}),
+            _make_node(seed=2, node_id="n2", metadata={"topic": "nlp"}),
+        ]
+        store.add(nodes)
+
+        # Persist
+        store.persist(tmp_persist_path)
+
+        # Load into new store
+        loaded = IronRaceVectorStore.from_persist_path(tmp_persist_path)
+
+        # Query should work and return same results
+        query = VectorStoreQuery(
+            query_embedding=nodes[0].embedding,
+            similarity_top_k=3,
+        )
+        result = loaded.query(query)
+        assert len(result.nodes) == 3
+        assert result.ids[0] == "n0"
+        assert result.similarities[0] > 0.99
+
+    def test_persist_preserves_metadata(self, tmp_persist_path):
+        store = IronRaceVectorStore()
+        nodes = [_make_node(seed=0, node_id="n0", metadata={"key": "value", "num": 42})]
+        store.add(nodes)
+        store.persist(tmp_persist_path)
+
+        loaded = IronRaceVectorStore.from_persist_path(tmp_persist_path)
+        query = VectorStoreQuery(
+            query_embedding=nodes[0].embedding, similarity_top_k=1
+        )
+        result = loaded.query(query)
+        assert result.nodes[0].metadata["key"] == "value"
+        assert result.nodes[0].metadata["num"] == 42
+
+    def test_persist_preserves_text(self, tmp_persist_path):
+        store = IronRaceVectorStore()
+        nodes = [_make_node(seed=0, node_id="n0", text="Hello world content")]
+        store.add(nodes)
+        store.persist(tmp_persist_path)
+
+        loaded = IronRaceVectorStore.from_persist_path(tmp_persist_path)
+        query = VectorStoreQuery(
+            query_embedding=nodes[0].embedding, similarity_top_k=1
+        )
+        result = loaded.query(query)
+        assert "Hello world content" in result.nodes[0].get_content()
+
+    def test_persist_preserves_ef_construction(self, tmp_persist_path):
+        store = IronRaceVectorStore(ef_construction=80)
+        store.add([_make_node(seed=0)])
+        store.persist(tmp_persist_path)
+
+        loaded = IronRaceVectorStore.from_persist_path(tmp_persist_path)
+        assert loaded.ef_construction == 80
+
+    def test_load_nonexistent_raises(self):
+        with pytest.raises(ValueError, match="No IronRaceVectorStore"):
+            IronRaceVectorStore.from_persist_path("/nonexistent/path.json")
+
+    def test_persist_empty_store(self, tmp_persist_path):
+        store = IronRaceVectorStore()
+        store.persist(tmp_persist_path)
+
+        loaded = IronRaceVectorStore.from_persist_path(tmp_persist_path)
+        result = loaded.query(VectorStoreQuery(
+            query_embedding=[0.0] * 64, similarity_top_k=5
+        ))
+        assert result.nodes == []
