@@ -15,17 +15,20 @@ jobs:
         with:
           python-version: "3.11"
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build
+      - name: Create venv and build
         run: |
+          python -m venv .venv
+          source .venv/bin/activate
           pip install maturin pytest
           maturin develop --release
       - name: Run core tests
-        run: pytest tests/ -v
-      - name: Install integration deps
         run: |
+          source .venv/bin/activate
+          pytest tests/ -v
+      - name: Install and test integration
+        run: |
+          source .venv/bin/activate
           pip install llama-index-core
           pip install -e integrations/llama-index
-      - name: Run integration tests
-        run: |
           cd integrations/llama-index
           IS_TESTING=true pytest tests/ -v
