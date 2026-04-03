@@ -44,7 +44,6 @@ This pattern — Rust acceleration under a Python API — is proven:
 - **Pydantic V2**: Rewrote validation in Rust, achieved 17x speedup
 - **Polars**: Rust DataFrame library, 5-10x faster than pandas
 - **Ruff**: Rust Python linter, 100x faster than flake8
-***REMOVED***
 
 IronRace applies the same architecture to AI agent context preparation: the developer writes pure Python (decorators, type hints, dataclasses), and the Rust runtime handles the CPU-intensive work.
 
