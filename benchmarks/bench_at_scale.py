@@ -9,10 +9,11 @@ Run: python benchmarks/bench_at_scale.py
 """
 
 import json
-import math
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
 
 random.seed(42)
 
@@ -20,32 +21,37 @@ from benchmarks.baseline_python import (
     cosine_similarity_python,
     full_pipeline_python,
     generate_api_response,
-    generate_embedding,
 )
 
 from ironrace._core import VectorIndex, execute_pipeline
 
 
-# ── Test Data ──
+# ── Test Data (numpy for fast generation — NOT what we're benchmarking) ──
 print("Generating test data...")
 KB_SIZE = 1000  # smaller for concurrent test
-KNOWLEDGE_BASE = [generate_embedding() for _ in range(KB_SIZE)]
+_rng = np.random.default_rng(42)
+_kb_np = _rng.standard_normal((KB_SIZE, 768)).astype(np.float32)
+_kb_np /= np.linalg.norm(_kb_np, axis=1, keepdims=True)
+KNOWLEDGE_BASE = _kb_np.tolist()
+
+_q_np = _rng.standard_normal(768).astype(np.float32)
+_q_np /= np.linalg.norm(_q_np)
+QUERY = _q_np.tolist()
+
 API_RESPONSE = generate_api_response(20)
 API_RESPONSE_JSON = json.dumps(API_RESPONSE)
-QUERY = generate_embedding()
 IDEA = "AI Travel Agent - Trippr.com"
 
 # Pre-build Rust index
 RUST_INDEX = VectorIndex(KNOWLEDGE_BASE)
 
-# Pre-build DAG JSON
+# Pre-build DAG JSON (no vector_search — index is pre-built, same as real usage)
 TEMPLATE = "System: {system}\nContext: {ctx}\nQuery: {query}"
 VALUES = {"system": "You are an analyst.", "ctx": "Competitor data here. " * 10, "query": IDEA}
 DAG_JSON = json.dumps({
     "nodes": [
-        {"id": "search", "op": {"type": "vector_search", "vectors": KNOWLEDGE_BASE, "query": QUERY, "top_k": 10, "ef_construction": 100}, "depends_on": []},
         {"id": "parse", "op": {"type": "json_parse", "data": API_RESPONSE_JSON}, "depends_on": []},
-        {"id": "assemble", "op": {"type": "assemble", "template": TEMPLATE, "values": VALUES, "budgets": {"ctx": 50}}, "depends_on": ["search", "parse"]},
+        {"id": "assemble", "op": {"type": "assemble", "template": TEMPLATE, "values": VALUES, "budgets": {"ctx": 50}}, "depends_on": ["parse"]},
     ]
 })
 print("Ready.\n")
@@ -56,6 +62,8 @@ def run_python_pipeline(_):
 
 
 def run_rust_pipeline(_):
+    # Pre-built index search + DAG execution (mirrors real usage)
+    RUST_INDEX.search(QUERY, 10)
     return execute_pipeline(DAG_JSON)
 
 

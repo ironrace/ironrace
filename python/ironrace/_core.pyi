@@ -6,7 +6,7 @@ def version() -> str: ...
 
 class VectorIndex:
     def __init__(
-        self, vectors: list[list[float]], ef_construction: int = 200
+        self, vectors: list[list[float]], ef_construction: int = 100
     ) -> None: ...
     def search(
         self, query: list[float], top_k: int = 10

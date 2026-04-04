@@ -51,7 +51,7 @@ pub enum Operation {
 }
 
 fn default_ef() -> usize {
-    200
+    100
 }
 fn default_model() -> String {
     "approximate".to_string()
@@ -81,8 +81,8 @@ fn execute_operation(op: &Operation) -> serde_json::Value {
             top_k,
             ef_construction,
         } => {
-            let idx = vector::VectorIndex::new(vectors.clone(), *ef_construction);
-            let results = idx.search(query.clone(), *top_k);
+            let idx = vector::VectorIndex::build(vectors.clone(), *ef_construction);
+            let results = idx.query(&query, *top_k);
             serde_json::json!(results
                 .iter()
                 .map(|(i, s)| serde_json::json!({"index": i, "score": s}))
@@ -183,12 +183,14 @@ fn topological_groups(nodes: &[DAGNode]) -> Vec<Vec<usize>> {
 /// Returns:
 ///     JSON string mapping node IDs to their result values.
 #[pyfunction]
-pub fn execute_pipeline(dag_json: &str) -> PyResult<String> {
+pub fn execute_pipeline(py: Python<'_>, dag_json: &str) -> PyResult<String> {
     let dag: DAGDefinition = serde_json::from_str(dag_json)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid DAG JSON: {e}")))?;
 
-    let groups = topological_groups(&dag.nodes);
-    let mut results: HashMap<String, serde_json::Value> = HashMap::new();
+    // Release the GIL — the entire DAG executes in pure Rust
+    let result_string = py.allow_threads(|| {
+        let groups = topological_groups(&dag.nodes);
+        let mut results: HashMap<String, serde_json::Value> = HashMap::new();
 
     for group in groups {
         if group.len() == 1 {
@@ -222,7 +224,9 @@ pub fn execute_pipeline(dag_json: &str) -> PyResult<String> {
         }
     }
 
-    serde_json::to_string(&results).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize results: {e}"))
-    })
+        serde_json::to_string(&results)
+            .map_err(|e| format!("Failed to serialize results: {e}"))
+    }); // end py.allow_threads
+
+    result_string.map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
 }

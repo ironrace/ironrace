@@ -11,31 +11,33 @@ In any agent pipeline, two things happen:
 1. **Context preparation** — vector search, JSON parsing, tokenization, feature computation, prompt assembly
 2. **LLM API calls** — the actual model inference
 
-The LLM call dominates **wall-clock time** (3-15 seconds per call). But context preparation dominates **CPU time**. At single-pipeline scale, you don't notice — 345ms of context prep disappears next to a 10-second LLM call. But at 1,000 concurrent pipelines, that's 345 seconds of CPU time per batch.
+The LLM call dominates **wall-clock time** (3-15 seconds per call). But context preparation dominates **CPU time**. At single-pipeline scale, you don't notice — a few hundred milliseconds of context prep disappears next to a 10-second LLM call. But at 1,000 concurrent pipelines, that's hundreds of seconds of CPU time per batch.
 
 ## The Numbers
 
-We benchmarked the full context preparation pipeline: vector similarity search over a knowledge base, JSON parsing of API responses, token counting, feature aggregation, and prompt assembly with budget enforcement.
+We benchmarked the full context preparation pipeline: vector similarity search over a knowledge base, JSON parsing of API responses, token counting, feature aggregation, and prompt assembly with budget enforcement. All numbers are **medians** with recall verified against brute-force ground truth.
 
 | Operation | Pure Python | Rust-Accelerated | Speedup |
 |-----------|------------|-----------------|---------|
-| Vector search (5K × 384d) | ~180ms | ~0.5ms | **360x** |
-| JSON parsing (900KB) | ~1.5ms | ~1.1ms | 1.4x |
-| Token counting | ~0.05ms | ~0.01ms | 5x |
-| Prompt assembly | ~0.15ms | ~0.02ms | 7x |
-| **Full pipeline** | **~185ms** | **~2ms** | **~90x** |
+| Vector search (5K × 384d) | 255ms | 0.11ms | **2,200x** |
+| JSON parsing (900KB) | ~24ms | ~2.4ms | 10x |
+| Token counting | ~0.07ms | ~0.005ms | 14x |
+| Prompt assembly | ~0.03ms | ~0.01ms | 3x |
+| **Full pipeline** | **~23ms** | **~4.8ms** | **~5x** |
 
-## The Cost Multiplier
+Vector search recall: 98-99% at 5K-10K vectors, verified against brute-force on every benchmark run.
 
-At 1M agent invocations per day with 6 agents each (6M context preparations):
+## Concurrent Scaling
 
-| Metric | Python | IronRace (Rust) |
-|--------|--------|------------------|
-| CPU-seconds/day | ~1.1M | ~12K |
-| vCPUs needed (sustained) | ~13 | ~0.14 |
-| Monthly compute (c5.2xlarge) | ~$400 | ~$4 |
+The speedup compounds at scale. IronRace releases the Python GIL during Rust execution, enabling true parallel throughput:
 
-The Rust context engine reduces compute costs by **~100x** for the context preparation layer.
+| Concurrent Pipelines | Python | IronRace | Speedup |
+|---|---|---|---|
+| 10 | 32ms/pipeline, 32/sec | 0.7ms/pipeline, 1,460/sec | **46x** |
+| 100 | 32ms/pipeline, 31/sec | 0.4ms/pipeline, 2,259/sec | **72x** |
+| 1,000 | 32ms/pipeline, 31/sec | 0.7ms/pipeline, 1,530/sec | **49x** |
+
+Python's throughput is flat because the GIL serializes all CPU work. IronRace's throughput scales with available cores.
 
 ## Prior Art
 
