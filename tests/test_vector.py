@@ -78,10 +78,10 @@ class TestVectorIndexSearch:
 
     def test_top_k_greater_than_n(self):
         """Requesting more results than vectors should return all vectors."""
-        vecs = [_unit_vector(dim=64, seed=i) for i in range(5)]
+        vecs = [_unit_vector(dim=64, seed=i) for i in range(50)]
         idx = VectorIndex(vecs)
-        results = idx.search(vecs[0], 100)
-        assert len(results) == 5
+        results = idx.search(vecs[0], 200)
+        assert len(results) == 50
 
     def test_results_sorted_by_similarity(self):
         vecs = [_unit_vector(dim=128, seed=i) for i in range(200)]
