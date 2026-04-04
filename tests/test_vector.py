@@ -77,15 +77,11 @@ class TestVectorIndexSearch:
         assert len(results) == 10
 
     def test_top_k_greater_than_n(self):
-        """Requesting more results than vectors should return most vectors.
-
-        HNSW is an approximate algorithm — it may not reach every node in the
-        graph, especially at small scale. We verify it returns the vast majority.
-        """
+        """Requesting more results than vectors should return all vectors."""
         vecs = [_unit_vector(dim=64, seed=i) for i in range(50)]
         idx = VectorIndex(vecs)
         results = idx.search(vecs[0], 200)
-        assert len(results) >= 45  # at least 90% of vectors
+        assert len(results) == 50
 
     def test_results_sorted_by_similarity(self):
         vecs = [_unit_vector(dim=128, seed=i) for i in range(200)]

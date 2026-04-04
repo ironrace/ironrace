@@ -131,7 +131,7 @@ class TestQuery:
             similarity_top_k=100,
         )
         result = store.query(query)
-        assert len(result.nodes) >= 18  # at least 90%
+        assert len(result.nodes) == 20
 
     def test_high_dimensional(self):
         """Test with 1536-d vectors (OpenAI embedding size)."""
@@ -405,7 +405,7 @@ class TestPersistence:
             similarity_top_k=5,
         )
         result = loaded.query(query)
-        assert len(result.nodes) >= 4  # HNSW approximate, expect most results
+        assert len(result.nodes) == 5
         assert result.ids[0] == "n0"
         assert result.similarities[0] > 0.99
 

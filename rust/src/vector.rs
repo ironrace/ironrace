@@ -34,9 +34,10 @@ impl VectorIndex {
 
         let data_for_insert: Vec<(&Vec<f32>, usize)> =
             vectors.iter().enumerate().map(|(i, v)| (v, i)).collect();
-        // Sequential insert for small datasets avoids graph fragmentation from
-        // parallel_insert race conditions; parallel for larger datasets for speed.
-        if n <= 128 {
+        // Sequential insert guarantees a fully connected graph. At the target
+        // scale (1K-10K vectors) the build time difference is negligible.
+        // parallel_insert is only used for large datasets where speed matters more.
+        if n <= 5000 {
             for (v, id) in &data_for_insert {
                 hnsw.insert((v.as_slice(), *id));
             }
