@@ -82,7 +82,7 @@ fn execute_operation(op: &Operation) -> serde_json::Value {
             ef_construction,
         } => {
             let idx = vector::VectorIndex::build(vectors.clone(), *ef_construction);
-            let results = idx.query(&query, *top_k);
+            let results = idx.query(query, *top_k);
             serde_json::json!(results
                 .iter()
                 .map(|(i, s)| serde_json::json!({"index": i, "score": s}))
@@ -227,5 +227,5 @@ pub fn execute_pipeline(py: Python<'_>, dag_json: &str) -> PyResult<String> {
         serde_json::to_string(&results).map_err(|e| format!("Failed to serialize results: {e}"))
     }); // end py.allow_threads
 
-    result_string.map_err(|e| pyo3::exceptions::PyValueError::new_err(e))
+    result_string.map_err(pyo3::exceptions::PyValueError::new_err)
 }

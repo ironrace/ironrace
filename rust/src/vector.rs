@@ -34,7 +34,15 @@ impl VectorIndex {
 
         let data_for_insert: Vec<(&Vec<f32>, usize)> =
             vectors.iter().enumerate().map(|(i, v)| (v, i)).collect();
-        hnsw.parallel_insert(&data_for_insert);
+        // Sequential insert for small datasets avoids graph fragmentation from
+        // parallel_insert race conditions; parallel for larger datasets for speed.
+        if n <= 128 {
+            for (v, id) in &data_for_insert {
+                hnsw.insert((v.as_slice(), *id));
+            }
+        } else {
+            hnsw.parallel_insert(&data_for_insert);
+        }
 
         VectorIndex { hnsw, count: n }
     }
