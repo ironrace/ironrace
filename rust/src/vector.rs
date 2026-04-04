@@ -59,7 +59,7 @@ impl VectorIndex {
         } else if top_k >= self.count / 2 {
             self.count
         } else {
-            top_k.max(16)
+            top_k.max(100)
         };
         let neighbours = self.hnsw.search(query, top_k, ef_search);
 

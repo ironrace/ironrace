@@ -4,7 +4,7 @@ Rust-powered context engine for AI agent pipelines. Accelerates the CPU-intensiv
 
 ## Why
 
-In multi-agent AI systems, context preparation is the CPU bottleneck at scale. Vector search over 5K embeddings takes ~70ms in pure Python. IronRace's Rust runtime does it in ~0.15ms with 97%+ recall — verified against brute-force on every benchmark run. The full pipeline runs ~3x faster single-threaded, scaling to **49-62x throughput** at 1,000 concurrent pipelines where Python's GIL becomes the bottleneck.
+In multi-agent AI systems, context preparation is the CPU bottleneck at scale. LlamaIndex's vector search over 5K embeddings takes ~54ms. IronRace's Rust runtime does it in ~0.5ms with 99% recall — verified against LlamaIndex brute-force on every benchmark run. The full pipeline runs **16x faster** single-threaded, scaling to **55x throughput** at 1,000 concurrent pipelines where Python's GIL becomes the bottleneck.
 
 ## 30-Second Example
 
@@ -34,34 +34,43 @@ results = json.loads(execute_pipeline(dag))
 
 ## Benchmark Results
 
-All numbers are **medians** across 200 iterations with 10 warmup runs. Recall verified against brute-force ground truth on every run.
+All numbers are **medians** across 200 iterations with 10 warmup runs. Baseline is actual LlamaIndex code (SimpleVectorStore, tiktoken, PromptHelper). Recall verified against LlamaIndex brute-force on every run.
 
-| Operation | Pure Python | IronRace (Rust) | Speedup |
+| Operation | LlamaIndex | IronRace (Rust) | Speedup |
 |-----------|------------|-----------------|---------|
-| Vector search (5K × 384d) | 71ms | 0.15ms | **~500x** |
-| JSON parsing (900KB) | ~8ms | ~2.2ms | **4x** |
-| Token counting | ~0.07ms | ~0.004ms | **16x** |
-| Prompt assembly | ~0.03ms | ~0.009ms | **3x** |
-| **Full pipeline** | **11ms** | **3.7ms** | **~3x** |
+| Vector search (5K × 384d) | 54ms | 0.5ms | **96-133x** |
+| JSON parsing (900KB) | ~9ms | ~3ms | **3x** |
+| Token counting (vs tiktoken) | 0.24ms | 0.005ms | **50x** |
+| Prompt assembly | 0.6ms | 0.01ms | **65x** |
+| **Full pipeline** | **64ms** | **4ms** | **16x** |
+
+Token counting baseline is tiktoken, which is itself Rust-based. JSON baselines are stdlib json, which LlamaIndex uses internally.
 
 Vector search scaling:
 
 | Scale | Build time | Search (median) | Recall@10 |
 |-------|-----------|-----------------|-----------|
-| 1K × 768d | 0.15s | 0.28ms | 97% |
-| 10K × 768d | 3.4s | 0.30ms | 97% |
-| 100K × 768d | 69s | 0.73ms | 72%* |
+| 1K × 768d | 0.6s | 0.58ms | 99% |
+| 10K × 768d | 7.8s | 1.33ms | 98% |
+| 100K × 768d | 80.6s | 2.12ms | 91%* |
 
 HNSW index build is a one-time cost amortized over all searches. Recall measured against brute-force cosine similarity across 100 queries.
 
 *IronRace is optimized for 1K-10K document collections. For larger datasets, pair IronRace's pipeline acceleration with a dedicated vector database like Pinecone, Milvus, or pgvector.
 
+Real-world RAG (19K chunks from a production codebase):
+
+| Operation | LlamaIndex | IronRace | Speedup |
+|---|---|---|---|
+| Context prep (search + assembly) | 399ms | 1.6ms | **245x** |
+| Result overlap vs brute-force | — | 4/5 | — |
+
 Concurrent throughput (GIL released during Rust execution):
 
 | Concurrent Pipelines | Python | IronRace | Speedup |
 |---|---|---|---|
-| 100 | 25/sec | 1,497/sec | **~50x** |
-| 1,000 | 30/sec | 1,858/sec | **~60x** |
+| 100 | 32/sec | 1,823/sec | **58x** |
+| 1,000 | 31/sec | 1,715/sec | **55x** |
 
 ## Installation
 
