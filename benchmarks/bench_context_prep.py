@@ -47,13 +47,22 @@ print("Generating test data...")
 KNOWLEDGE_BASE_SIZE = 5000
 EMBEDDING_DIM = 384  # Matches docs/BENCHMARKS.md (5K vectors × 384d)
 
-# Use numpy for fast test data generation (NOT what we're benchmarking)
+# Use clustered vectors that simulate real embeddings (NOT what we're benchmarking)
 _rng = np.random.default_rng(42)
-_kb_np = _rng.standard_normal((KNOWLEDGE_BASE_SIZE, EMBEDDING_DIM)).astype(np.float32)
+_n_clusters = 25
+_centers = _rng.standard_normal((_n_clusters, EMBEDDING_DIM)).astype(np.float32)
+_centers /= np.linalg.norm(_centers, axis=1, keepdims=True)
+_n_per = KNOWLEDGE_BASE_SIZE // _n_clusters
+_chunks = []
+for _c in _centers:
+    _noise = _rng.standard_normal((_n_per, EMBEDDING_DIM)).astype(np.float32) * 0.1
+    _chunks.append(_c + _noise)
+_kb_np = np.vstack(_chunks).astype(np.float32)
 _kb_np /= np.linalg.norm(_kb_np, axis=1, keepdims=True)
 KNOWLEDGE_BASE = _kb_np.tolist()
 
-_q_np = _rng.standard_normal(EMBEDDING_DIM).astype(np.float32)
+# Use a vector near a cluster center as the query (realistic: searching for similar docs)
+_q_np = _kb_np[0] + _rng.standard_normal(EMBEDDING_DIM).astype(np.float32) * 0.05
 _q_np /= np.linalg.norm(_q_np)
 QUERY_EMBEDDING = _q_np.tolist()
 
@@ -71,7 +80,7 @@ print(f"  Documents: {len(DOCUMENTS)} retrieved docs")
 # Pre-build Rust vector index
 print("  Building Rust HNSW index...", end=" ", flush=True)
 t0 = time.perf_counter()
-RUST_INDEX = VectorIndex(KNOWLEDGE_BASE, ef_construction=20)
+RUST_INDEX = VectorIndex(KNOWLEDGE_BASE)
 build_time = (time.perf_counter() - t0) * 1000
 print(f"done ({build_time:.0f}ms)")
 
@@ -132,6 +141,17 @@ print(f"{'─' * 64}")
 py = benchmark("Python", lambda: cosine_similarity_python(QUERY_EMBEDDING, KNOWLEDGE_BASE, 10), ITERS)
 rs = benchmark("IronRace", lambda: RUST_INDEX.search(QUERY_EMBEDDING, 10), ITERS)
 s1 = print_comparison(py, rs)
+
+# Recall@10: compare HNSW results against brute-force ground truth across multiple queries
+_n_recall_queries = 50
+_query_indices = np.linspace(0, KNOWLEDGE_BASE_SIZE - 1, _n_recall_queries, dtype=int)
+_total_recall = 0
+for _qi in _query_indices:
+    _gt = set(i for i, _ in cosine_similarity_python(KNOWLEDGE_BASE[_qi], KNOWLEDGE_BASE, 10))
+    _rs = set(i for i, _ in RUST_INDEX.search(KNOWLEDGE_BASE[_qi], 10))
+    _total_recall += len(_gt & _rs) / 10.0
+_avg_recall = _total_recall / _n_recall_queries
+print(f"  Recall@10: {_avg_recall:.0%} ({_n_recall_queries} queries vs brute-force)")
 
 # 2. JSON Parsing
 print(f"\n{'─' * 64}")

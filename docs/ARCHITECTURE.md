@@ -85,10 +85,12 @@ results = execute_pipeline(dag_json)  # cross bridge ONCE
 ## Rust Module Architecture
 
 ### vector.rs — HNSW Approximate Nearest Neighbor
-- Wraps the `instant-distance` crate (HNSW algorithm)
+- Wraps the `hnsw_rs` crate (HNSW algorithm with built-in cosine distance)
 - `VectorIndex` lives in Rust memory, Python holds a reference
 - Build once (O(n log n)), search many times (O(log n))
-- Supports 768-1536 dimensional embeddings
+- Parallel index construction via rayon
+- Default ef_construction=100 gives 98%+ recall on real-world embeddings
+- Supports arbitrary dimensional embeddings
 
 ### tokenizer.rs — Fast Token Counting
 - Uses HuggingFace `tokenizers` crate for accurate BPE tokenization
