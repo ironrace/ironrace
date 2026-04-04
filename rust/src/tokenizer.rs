@@ -42,7 +42,7 @@ fn approximate_token_count(text: &str) -> usize {
         } else if len <= 8 {
             2
         } else {
-            (len + 3) / 4
+            len.div_ceil(4)
         };
     }
     count

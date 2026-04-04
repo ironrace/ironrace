@@ -1,7 +1,8 @@
 """Core types for IronRace context definitions."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any
 
 
 @dataclass
@@ -64,7 +65,7 @@ class APIFetch:
     a field should be populated from an external API call.
     """
 
-    def __init__(self, url: str = "", params: Optional[dict] = None):
+    def __init__(self, url: str = "", params: dict | None = None):
         self.url = url
         self.params = params or {}
 

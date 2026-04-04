@@ -1,13 +1,12 @@
 """Compiler that analyzes decorated components and builds execution DAGs."""
 
 import json
-from typing import Any, Type
 
 from ironrace.decorators import _compiled_dags, get_registry
 from ironrace.types import APIFetch, Feature, VectorSearch
 
 
-def compile_context(context_cls: Type) -> list[dict]:
+def compile_context(context_cls: type) -> list[dict]:
     """Build DAG nodes for a context class's data dependencies."""
     nodes = []
     info = get_registry()["contexts"].get(context_cls.__name__)

@@ -1,9 +1,8 @@
 """Async LLM API router for making model calls."""
 
 import asyncio
-import json
 import os
-from typing import Any, Optional
+from typing import Any
 
 try:
     import httpx
@@ -30,9 +29,9 @@ class LLMRouter:
 
     def __init__(
         self,
-        anthropic_api_key: Optional[str] = None,
-        openai_api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        anthropic_api_key: str | None = None,
+        openai_api_key: str | None = None,
+        base_url: str | None = None,
         max_retries: int = 3,
     ):
         self.anthropic_api_key = anthropic_api_key or os.environ.get(
@@ -43,7 +42,7 @@ class LLMRouter:
         )
         self.base_url = base_url
         self.max_retries = max_retries
-        self._client: Optional[Any] = None
+        self._client: Any | None = None
 
     def _get_client(self) -> Any:
         if not HAS_HTTPX:
@@ -59,7 +58,7 @@ class LLMRouter:
         model: str,
         messages: list[dict[str, str]],
         max_tokens: int = 1500,
-        system: Optional[str] = None,
+        system: str | None = None,
         **kwargs: Any,
     ) -> dict:
         """Make an LLM API call with retries.
@@ -88,7 +87,7 @@ class LLMRouter:
         model: str,
         messages: list[dict[str, str]],
         max_tokens: int,
-        system: Optional[str] = None,
+        system: str | None = None,
         **kwargs: Any,
     ) -> dict:
         client = self._get_client()
@@ -114,7 +113,7 @@ class LLMRouter:
         model: str,
         messages: list[dict[str, str]],
         max_tokens: int,
-        system: Optional[str] = None,
+        system: str | None = None,
         **kwargs: Any,
     ) -> dict:
         client = self._get_client()
@@ -142,7 +141,7 @@ class LLMRouter:
         model: str,
         messages: list[dict[str, str]],
         max_tokens: int,
-        system: Optional[str] = None,
+        system: str | None = None,
         **kwargs: Any,
     ) -> dict:
         client = self._get_client()

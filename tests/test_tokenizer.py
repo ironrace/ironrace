@@ -1,6 +1,5 @@
 """Tests for ironrace._core tokenizer functions."""
 
-import pytest
 
 from ironrace._core import count_tokens, truncate_to_budget
 
@@ -33,10 +32,10 @@ class TestCountTokens:
         assert tokens > 0  # falls back to approximate
 
     def test_longer_words_more_tokens(self):
-        short = count_tokens("a b c d e")
-        long = count_tokens("internationalization implementation")
+        short_count = count_tokens("a b c d e")
+        long_count = count_tokens("internationalization implementation")
         # Longer words should produce more tokens per word
-        assert long >= 2
+        assert long_count >= short_count
 
 
 class TestTruncateToBudget:

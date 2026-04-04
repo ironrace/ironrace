@@ -2,9 +2,8 @@
 
 import asyncio
 import functools
-import inspect
-import json
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from ironrace.types import APIFetch, Feature, VectorSearch
 
@@ -24,7 +23,7 @@ def get_registry() -> dict[str, dict[str, Any]]:
     return _registry
 
 
-def context(cls: Type) -> Type:
+def context(cls: type) -> type:
     """Decorator for context classes.
 
     Inspects class annotations to identify data source descriptors
@@ -69,8 +68,8 @@ def context(cls: Type) -> Type:
 def agent(
     model: str = "claude-sonnet-4-20250514",
     max_tokens: int = 1500,
-    context: Optional[Type] = None,
-    token_budget: Optional[Any] = None,
+    context: type | None = None,
+    token_budget: Any | None = None,
 ) -> Callable:
     """Decorator for agent functions.
 
@@ -134,7 +133,7 @@ def agent(
         @functools.wraps(func)
         def sync_wrapper(**kwargs):
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # Already in async context — return coroutine
                 return async_wrapper(**kwargs)
             except RuntimeError:
@@ -186,7 +185,7 @@ def pipeline(concurrency: int = 10) -> Callable:
         @functools.wraps(func)
         def sync_wrapper(**kwargs):
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 return async_wrapper(**kwargs)
             except RuntimeError:
                 return asyncio.run(async_wrapper(**kwargs))
