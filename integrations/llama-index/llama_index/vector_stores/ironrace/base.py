@@ -139,6 +139,42 @@ class IronRaceVectorStore(BasePydanticVectorStore):
         self._node_ids = new_node_ids
         self._dirty = True
 
+    def delete_nodes(
+        self, node_ids: List[str], **kwargs: Any
+    ) -> None:
+        """Delete nodes by their IDs."""
+        delete_set = set(node_ids)
+        for nid in node_ids:
+            self._nodes.pop(nid, None)
+            # Clean up ref_doc_id mapping
+            for ref_id, nids in list(self._ref_doc_id_to_node_ids.items()):
+                self._ref_doc_id_to_node_ids[ref_id] = [
+                    n for n in nids if n not in delete_set
+                ]
+                if not self._ref_doc_id_to_node_ids[ref_id]:
+                    del self._ref_doc_id_to_node_ids[ref_id]
+
+        new_embeddings = []
+        new_node_ids = []
+        for nid, emb in zip(self._node_ids, self._embeddings):
+            if nid not in delete_set:
+                new_embeddings.append(emb)
+                new_node_ids.append(nid)
+
+        self._embeddings = new_embeddings
+        self._node_ids = new_node_ids
+        self._dirty = True
+
+    def clear(self) -> None:
+        """Remove all nodes from the store."""
+        self._nodes.clear()
+        self._embeddings.clear()
+        self._node_ids.clear()
+        self._ref_doc_id_to_node_ids.clear()
+        self._index = None
+        self._dirty = True
+        self._embedding_dim = None
+
     def query(
         self, query: VectorStoreQuery, **kwargs: Any
     ) -> VectorStoreQueryResult:
@@ -379,9 +415,8 @@ class IronRaceVectorStore(BasePydanticVectorStore):
                     stores[namespace] = cls.from_persist_dir(
                         persist_dir=persist_dir, namespace=namespace, fs=fs
                     )
-        except Exception:
-            stores["default"] = cls.from_persist_dir(
-                persist_dir=persist_dir, fs=fs
-            )
+        except FileNotFoundError:
+            logger.warning(f"Persist directory not found: {persist_dir}")
+            stores["default"] = cls()
 
         return stores

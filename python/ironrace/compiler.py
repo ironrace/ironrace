@@ -1,5 +1,7 @@
 """Compiler that analyzes decorated components and builds execution DAGs."""
 
+__all__ = ["compile_context", "compile_pipeline", "compile_agents_dag"]
+
 import json
 
 from ironrace.decorators import _compiled_dags, get_registry
