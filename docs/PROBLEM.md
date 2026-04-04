@@ -19,23 +19,23 @@ We benchmarked the full context preparation pipeline: vector similarity search o
 
 | Operation | Pure Python | Rust-Accelerated | Speedup |
 |-----------|------------|-----------------|---------|
-| Vector search (5K × 384d) | 255ms | 0.11ms | **2,200x** |
-| JSON parsing (900KB) | ~24ms | ~2.4ms | 10x |
-| Token counting | ~0.07ms | ~0.005ms | 14x |
-| Prompt assembly | ~0.03ms | ~0.01ms | 3x |
-| **Full pipeline** | **~23ms** | **~4.8ms** | **~5x** |
+| Vector search (5K × 384d) | 71ms | 0.15ms | **480x** |
+| JSON parsing (900KB) | ~8ms | ~2.2ms | 4x |
+| Token counting | ~0.07ms | ~0.004ms | 16x |
+| Prompt assembly | ~0.03ms | ~0.009ms | 3x |
+| **Full pipeline** | **~11ms** | **~3.7ms** | **~3x** |
 
-Vector search recall: 98-99% at 5K-10K vectors, verified against brute-force on every benchmark run.
+Vector search recall: 97%+ at 5K-10K vectors, verified against brute-force on every benchmark run.
 
 ## Concurrent Scaling
 
-The speedup compounds at scale. IronRace releases the Python GIL during Rust execution, enabling true parallel throughput:
+The single-threaded ~3x speedup compounds dramatically at scale. IronRace releases the Python GIL during Rust execution, enabling true parallel throughput:
 
 | Concurrent Pipelines | Python | IronRace | Speedup |
 |---|---|---|---|
-| 10 | 32ms/pipeline, 32/sec | 0.7ms/pipeline, 1,460/sec | **46x** |
-| 100 | 32ms/pipeline, 31/sec | 0.4ms/pipeline, 2,259/sec | **72x** |
-| 1,000 | 32ms/pipeline, 31/sec | 0.7ms/pipeline, 1,530/sec | **49x** |
+| 10 | 32ms/pipeline, 31/sec | 0.7ms/pipeline, 1,423/sec | **46x** |
+| 100 | 40ms/pipeline, 25/sec | 0.7ms/pipeline, 1,497/sec | **59x** |
+| 1,000 | 33ms/pipeline, 30/sec | 0.5ms/pipeline, 1,858/sec | **62x** |
 
 Python's throughput is flat because the GIL serializes all CPU work. IronRace's throughput scales with available cores.
 

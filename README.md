@@ -4,7 +4,7 @@ Rust-powered context engine for AI agent pipelines. Accelerates the CPU-intensiv
 
 ## Why
 
-In multi-agent AI systems, context preparation is the CPU bottleneck at scale. Vector search over 5K embeddings takes ~255ms in pure Python. IronRace's Rust runtime does it in ~0.1ms with 99% recall — verified against brute-force on every benchmark run. The full context preparation pipeline runs ~5x faster end-to-end.
+In multi-agent AI systems, context preparation is the CPU bottleneck at scale. Vector search over 5K embeddings takes ~70ms in pure Python. IronRace's Rust runtime does it in ~0.15ms with 97%+ recall — verified against brute-force on every benchmark run. The full context preparation pipeline runs ~3x faster single-threaded, and at 1,000 concurrent pipelines IronRace achieves **62x** throughput over Python.
 
 ## 30-Second Example
 
@@ -38,27 +38,28 @@ All numbers are **medians** across 200 iterations with 10 warmup runs. Recall ve
 
 | Operation | Pure Python | IronRace (Rust) | Speedup |
 |-----------|------------|-----------------|---------|
-| Vector search (5K × 384d) | 255ms | 0.11ms | **2,200x** |
-| JSON parsing (900KB) | ~24ms | ~2.4ms | **10x** |
-| Token counting | ~0.07ms | ~0.005ms | **14x** |
-| Prompt assembly | ~0.03ms | ~0.01ms | **3x** |
-| **Full pipeline** | **23ms** | **4.8ms** | **~5x** |
+| Vector search (5K × 384d) | 71ms | 0.15ms | **480x** |
+| JSON parsing (900KB) | ~8ms | ~2.2ms | **4x** |
+| Token counting | ~0.07ms | ~0.004ms | **16x** |
+| Prompt assembly | ~0.03ms | ~0.009ms | **3x** |
+| **Full pipeline** | **11ms** | **3.7ms** | **~3x** |
 
 Vector search scaling:
 
 | Scale | Build time | Search (median) | Recall@10 |
 |-------|-----------|-----------------|-----------|
-| 1K × 768d | 0.3s | 0.3ms | 99% |
-| 10K × 768d | ~10s | 0.3ms | 98% |
+| 1K × 768d | 0.15s | 0.28ms | 97% |
+| 10K × 768d | 3.4s | 0.30ms | 97% |
+| 100K × 768d | 69s | 0.73ms | 72% |
 
-HNSW index build is a one-time cost amortized over all searches. Recall measured against brute-force cosine similarity across 100 queries.
+HNSW index build is a one-time cost amortized over all searches. Recall measured against brute-force cosine similarity across 100 queries. Recall at 100K can be improved by increasing `ef_construction`.
 
 Concurrent throughput (GIL released during Rust execution):
 
 | Concurrent Pipelines | Python | IronRace | Speedup |
 |---|---|---|---|
-| 100 | 31/sec | 2,259/sec | **72x** |
-| 1,000 | 31/sec | 1,530/sec | **49x** |
+| 100 | 25/sec | 1,497/sec | **59x** |
+| 1,000 | 30/sec | 1,858/sec | **62x** |
 
 ## Installation
 
