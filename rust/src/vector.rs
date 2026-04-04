@@ -41,7 +41,13 @@ impl VectorIndex {
 
     /// Search without requiring Python token (used internally by pipeline)
     pub fn query(&self, query: &[f32], top_k: usize) -> Vec<(usize, f32)> {
-        let ef_search = if top_k >= self.count / 2 {
+        if self.count == 0 {
+            return vec![];
+        }
+        let ef_search = if top_k >= self.count {
+            // Requesting all vectors — boost ef well above count for full recall
+            self.count * 2
+        } else if top_k >= self.count / 2 {
             self.count
         } else {
             top_k.max(16)

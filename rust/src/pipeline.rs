@@ -192,37 +192,38 @@ pub fn execute_pipeline(py: Python<'_>, dag_json: &str) -> PyResult<String> {
         let groups = topological_groups(&dag.nodes);
         let mut results: HashMap<String, serde_json::Value> = HashMap::new();
 
-    for group in groups {
-        if group.len() == 1 {
-            // Single node — execute directly
-            let node = &dag.nodes[group[0]];
-            let result = execute_operation(&node.op);
-            results.insert(node.id.clone(), result);
-        } else {
-            // Multiple independent nodes — execute in parallel via Tokio
-            let nodes_for_group: Vec<DAGNode> =
-                group.iter().map(|&i| dag.nodes[i].clone()).collect();
+        for group in groups {
+            if group.len() == 1 {
+                // Single node — execute directly
+                let node = &dag.nodes[group[0]];
+                let result = execute_operation(&node.op);
+                results.insert(node.id.clone(), result);
+            } else {
+                // Multiple independent nodes — execute in parallel via Tokio
+                let nodes_for_group: Vec<DAGNode> =
+                    group.iter().map(|&i| dag.nodes[i].clone()).collect();
 
-            let group_results: Vec<(String, serde_json::Value)> = RUNTIME.block_on(async {
-                let mut handles = Vec::new();
-                for node in nodes_for_group {
-                    handles.push(tokio::spawn(async move {
-                        let result = execute_operation(&node.op);
-                        (node.id, result)
-                    }));
-                }
-                let mut results = Vec::new();
-                for handle in handles {
-                    results.push(handle.await.unwrap());
-                }
-                results
-            });
+                let group_results: Vec<(String, serde_json::Value)> =
+                    RUNTIME.block_on(async {
+                        let mut handles = Vec::new();
+                        for node in nodes_for_group {
+                            handles.push(tokio::spawn(async move {
+                                let result = execute_operation(&node.op);
+                                (node.id, result)
+                            }));
+                        }
+                        let mut results = Vec::new();
+                        for handle in handles {
+                            results.push(handle.await.unwrap());
+                        }
+                        results
+                    });
 
-            for (id, result) in group_results {
-                results.insert(id, result);
+                for (id, result) in group_results {
+                    results.insert(id, result);
+                }
             }
         }
-    }
 
         serde_json::to_string(&results)
             .map_err(|e| format!("Failed to serialize results: {e}"))

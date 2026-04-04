@@ -65,8 +65,6 @@ KNOWLEDGE_BASE = _kb_np.tolist()
 _q_np = _kb_np[0] + _rng.standard_normal(EMBEDDING_DIM).astype(np.float32) * 0.05
 _q_np /= np.linalg.norm(_q_np)
 QUERY_EMBEDDING = _q_np.tolist()
-# Keep numpy array for recall verification
-_QUERY_NP = _q_np
 
 API_RESPONSE = generate_api_response(50)
 API_RESPONSE_JSON = json.dumps(API_RESPONSE)
