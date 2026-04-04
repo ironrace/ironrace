@@ -44,8 +44,8 @@ from ironrace._core import (
 import numpy as np
 
 print("Generating test data...")
-KNOWLEDGE_BASE_SIZE = 500
-EMBEDDING_DIM = 128  # Practical size for benchmarking (build is O(n log n))
+KNOWLEDGE_BASE_SIZE = 5000
+EMBEDDING_DIM = 384  # Matches docs/BENCHMARKS.md (5K vectors × 384d)
 
 # Use numpy for fast test data generation (NOT what we're benchmarking)
 _rng = np.random.default_rng(42)

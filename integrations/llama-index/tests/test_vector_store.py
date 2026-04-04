@@ -285,6 +285,107 @@ class TestMetadataFilters:
         assert categories <= {"tech", "health"}
 
 
+class TestDeleteNodes:
+    def test_delete_nodes_by_id(self):
+        store = IronRaceVectorStore()
+        nodes = [
+            _make_node(seed=0, node_id="n0"),
+            _make_node(seed=1, node_id="n1"),
+            _make_node(seed=2, node_id="n2"),
+        ]
+        store.add(nodes)
+
+        store.delete_nodes(["n0", "n2"])
+
+        query = VectorStoreQuery(
+            query_embedding=nodes[1].embedding, similarity_top_k=10
+        )
+        result = store.query(query)
+        assert len(result.nodes) == 1
+        assert result.ids[0] == "n1"
+
+    def test_delete_nodes_nonexistent(self):
+        store = IronRaceVectorStore()
+        store.add([_make_node(seed=0, node_id="n0")])
+        store.delete_nodes(["nonexistent"])  # should not raise
+
+        query = VectorStoreQuery(
+            query_embedding=[0.0] * 64, similarity_top_k=10
+        )
+        result = store.query(query)
+        assert len(result.nodes) == 1
+
+    def test_delete_nodes_cleans_ref_doc_mapping(self):
+        store = IronRaceVectorStore()
+        nodes = [
+            _make_node(seed=0, node_id="n0", ref_doc_id="doc_A"),
+            _make_node(seed=1, node_id="n1", ref_doc_id="doc_A"),
+        ]
+        store.add(nodes)
+
+        store.delete_nodes(["n0", "n1"])
+
+        # ref_doc_id mapping should be cleaned up
+        assert "doc_A" not in store._ref_doc_id_to_node_ids
+
+
+class TestClear:
+    def test_clear_removes_all(self):
+        store = IronRaceVectorStore()
+        store.add([_make_node(seed=i) for i in range(10)])
+
+        store.clear()
+
+        query = VectorStoreQuery(
+            query_embedding=[0.0] * 64, similarity_top_k=10
+        )
+        result = store.query(query)
+        assert result.nodes == []
+
+    def test_clear_resets_embedding_dim(self):
+        store = IronRaceVectorStore()
+        store.add([_make_node(dim=64, seed=0)])
+        store.clear()
+        # Should accept different dimension after clear
+        store.add([_make_node(dim=128, seed=1)])
+        assert store._embedding_dim == 128
+
+
+class TestEdgeCases:
+    def test_all_filtered_out(self):
+        store = IronRaceVectorStore()
+        nodes = [
+            _make_node(seed=0, node_id="a", metadata={"status": "inactive"}),
+            _make_node(seed=1, node_id="b", metadata={"status": "inactive"}),
+        ]
+        store.add(nodes)
+
+        query = VectorStoreQuery(
+            query_embedding=nodes[0].embedding,
+            similarity_top_k=10,
+            filters=MetadataFilters(
+                filters=[MetadataFilter(key="status", value="active", operator=FilterOperator.EQ)]
+            ),
+        )
+        result = store.query(query)
+        assert result.nodes == []
+
+    def test_query_no_embedding_raises(self):
+        store = IronRaceVectorStore()
+        store.add([_make_node(seed=0)])
+
+        with pytest.raises(ValueError, match="query_embedding"):
+            store.query(VectorStoreQuery(query_embedding=None, similarity_top_k=5))
+
+    def test_corrupted_persist_file(self, tmp_path):
+        persist_path = str(tmp_path / "bad.json")
+        with open(persist_path, "w") as f:
+            f.write("{invalid json")
+
+        with pytest.raises(Exception):
+            IronRaceVectorStore.from_persist_path(persist_path)
+
+
 class TestPersistence:
     def test_persist_and_load(self, tmp_persist_path):
         store = IronRaceVectorStore()
