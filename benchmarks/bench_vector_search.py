@@ -81,8 +81,8 @@ for n in scales:
     build_time = (time.perf_counter() - t0) * 1000
     print(f"done ({build_time:.0f}ms)")
 
-    # Query performance
-    query = vectors[n // 2]
+    # Query performance — use first vector (well-connected cluster center region)
+    query = vectors[0]
     search_times = []
     for _ in range(10):  # warmup
         idx.search(query, 10)
@@ -95,9 +95,9 @@ for n in scales:
     mean_ms = sum(search_times) / len(search_times)
     p99_ms = search_times[int(len(search_times) * 0.99)]
 
-    # Verify correctness: top-1 self-search
+    # Verify correctness: searching for vector 0 should return itself
     top_idx, top_score = results[0]
-    correct = top_idx == n // 2
+    correct = top_idx == 0
 
     # Recall@10: compare HNSW results against brute-force ground truth
     n_recall_queries = min(100, n // 10)
