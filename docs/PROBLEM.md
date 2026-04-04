@@ -15,27 +15,27 @@ The LLM call dominates **wall-clock time** (3-15 seconds per call). But context 
 
 ## The Numbers
 
-We benchmarked the full context preparation pipeline: vector similarity search over a knowledge base, JSON parsing of API responses, token counting, feature aggregation, and prompt assembly with budget enforcement. All numbers are **medians** with recall verified against brute-force ground truth.
+We benchmarked the full context preparation pipeline against actual LlamaIndex code: vector similarity search (SimpleVectorStore), JSON parsing, token counting (tiktoken), and prompt assembly (PromptHelper + PromptTemplate). All numbers are **medians** with recall verified against LlamaIndex brute-force ground truth.
 
-| Operation | Pure Python | Rust-Accelerated | Speedup |
+| Operation | LlamaIndex | IronRace (Rust) | Speedup |
 |-----------|------------|-----------------|---------|
-| Vector search (5K × 384d) | 71ms | 0.15ms | **480x** |
-| JSON parsing (900KB) | ~8ms | ~2.2ms | 4x |
-| Token counting | ~0.07ms | ~0.004ms | 16x |
-| Prompt assembly | ~0.03ms | ~0.009ms | 3x |
-| **Full pipeline** | **~11ms** | **~3.7ms** | **~3x** |
+| Vector search (5K × 384d) | 54ms | 0.5ms | **96-133x** |
+| JSON parsing (900KB) | ~9ms | ~3ms | 3x |
+| Token counting (vs tiktoken) | 0.24ms | 0.005ms | 50x |
+| Prompt assembly | 0.6ms | 0.01ms | 65x |
+| **Full pipeline** | **64ms** | **4ms** | **16x** |
 
-Vector search recall: 97%+ at 5K-10K vectors, verified against brute-force on every benchmark run.
+Vector search recall: 99% at 5K vectors, 98% at 10K vectors, verified against LlamaIndex brute-force on every benchmark run.
 
 ## Concurrent Scaling
 
-The single-threaded ~3x speedup compounds dramatically at scale. IronRace releases the Python GIL during Rust execution, enabling true parallel throughput:
+The single-threaded 16x speedup compounds dramatically at scale. IronRace releases the Python GIL during Rust execution, enabling true parallel throughput:
 
 | Concurrent Pipelines | Python | IronRace | Speedup |
 |---|---|---|---|
-| 10 | 32ms/pipeline, 31/sec | 0.7ms/pipeline, 1,423/sec | **46x** |
-| 100 | 40ms/pipeline, 25/sec | 0.7ms/pipeline, 1,497/sec | **59x** |
-| 1,000 | 33ms/pipeline, 30/sec | 0.5ms/pipeline, 1,858/sec | **62x** |
+| 10 | 32ms/pipeline, 31/sec | 0.8ms/pipeline, 1,267/sec | **41x** |
+| 100 | 31ms/pipeline, 32/sec | 0.5ms/pipeline, 1,823/sec | **58x** |
+| 1,000 | 32ms/pipeline, 31/sec | 0.6ms/pipeline, 1,715/sec | **55x** |
 
 Python's throughput is flat because the GIL serializes all CPU work. IronRace's throughput scales with available cores.
 

@@ -4,36 +4,7 @@
 
 IronRace uses a two-phase execution model: **compile-time** analysis in Python and **runtime** execution in Rust.
 
-```
-┌─────────────────────────────────────────────┐
-│  Python SDK Layer                           │
-│  @agent, @context, @pipeline decorators     │
-│  pip install ironrace                     │
-└──────────────────┬──────────────────────────┘
-                   │ compiles to DAG at import time
-┌──────────────────▼──────────────────────────┐
-│  Context Graph Compiler (Python)            │
-│  Analyzes decorator metadata, builds        │
-│  dependency DAG, generates execution plan   │
-└──────────────────┬──────────────────────────┘
-                   │ execution plan (JSON)
-┌──────────────────▼──────────────────────────┐
-│  Rust Runtime (PyO3 + Tokio)                │
-│  ┌──────────┐ ┌──────────┐ ┌─────────────┐ │
-│  │ Vector   │ │ JSON     │ │ Tokenizer   │ │
-│  │ ANN      │ │ (serde)  │ │ (HF crate)  │ │
-│  └──────────┘ └──────────┘ └─────────────┘ │
-│  ┌──────────────────────────────────────┐   │
-│  │ Parallel Context Assembler           │   │
-│  │ Template interp + token budgeting    │   │
-│  └──────────────────────────────────────┘   │
-└──────────────────┬──────────────────────────┘
-                   │ enriched prompt (JSON bytes)
-┌──────────────────▼──────────────────────────┐
-│  LLM Router (Python async — httpx)          │
-│  Standard API calls — same speed regardless │
-└─────────────────────────────────────────────┘
-```
+![IronRace Architecture](context_engine_architecture.svg)
 
 ## Phase 1: Compile Time (Python)
 

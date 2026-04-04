@@ -42,10 +42,10 @@ python -m benchmarks.bench_at_scale
 Each operation is benchmarked with:
 - **200 iterations** after 10 warmup iterations
 - Statistics: mean, **median** (used for all claims), P95, P99
-- Both pure Python and IronRace (Rust) implementations run identical operations
+- Both LlamaIndex and IronRace (Rust) implementations run identical operations
 - Timing uses `time.perf_counter()` for high-resolution measurement
 - Test data is generated once and reused across all iterations
-- **Recall@10** verified against brute-force cosine similarity on every run
+- **Recall@10** verified against LlamaIndex SimpleVectorStore (brute-force) on every run
 
 ## HNSW Configuration
 
