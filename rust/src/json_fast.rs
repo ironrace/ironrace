@@ -85,7 +85,8 @@ pub fn parse_json(py: Python<'_>, data: &[u8]) -> PyResult<PyObject> {
 #[pyfunction]
 pub fn serialize_json<'py>(py: Python<'py>, obj: &Bound<'py, pyo3::PyAny>) -> PyResult<PyObject> {
     let value = pyobject_to_value(obj)?;
-    let bytes = serde_json::to_vec(&value)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON serialize error: {e}")))?;
+    let bytes = serde_json::to_vec(&value).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("JSON serialize error: {e}"))
+    })?;
     Ok(PyBytes::new_bound(py, &bytes).into_any().unbind())
 }

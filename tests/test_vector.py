@@ -3,8 +3,6 @@
 import math
 import random
 
-import pytest
-
 from ironrace._core import VectorIndex
 
 

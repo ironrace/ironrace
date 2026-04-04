@@ -8,12 +8,7 @@ struct Embedding(Vec<f32>);
 
 impl instant_distance::Point for Embedding {
     fn distance(&self, other: &Self) -> f32 {
-        let dot: f32 = self
-            .0
-            .iter()
-            .zip(other.0.iter())
-            .map(|(a, b)| a * b)
-            .sum();
+        let dot: f32 = self.0.iter().zip(other.0.iter()).map(|(a, b)| a * b).sum();
         1.0 - dot
     }
 }

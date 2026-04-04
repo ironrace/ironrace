@@ -1,3 +1,6 @@
+// PyO3 0.22 map_err patterns trigger false positives with clippy 1.93+
+#![allow(clippy::useless_conversion)]
+
 use pyo3::prelude::*;
 
 mod assembler;

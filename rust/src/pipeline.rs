@@ -5,9 +5,8 @@ use tokio::runtime::Runtime;
 
 use crate::{assembler, tokenizer, vector};
 
-static RUNTIME: once_cell::sync::Lazy<Runtime> = once_cell::sync::Lazy::new(|| {
-    Runtime::new().expect("Failed to create Tokio runtime")
-});
+static RUNTIME: once_cell::sync::Lazy<Runtime> =
+    once_cell::sync::Lazy::new(|| Runtime::new().expect("Failed to create Tokio runtime"));
 
 /// Supported operations that can be executed as DAG nodes.
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -89,12 +88,10 @@ fn execute_operation(op: &Operation) -> serde_json::Value {
                 .map(|(i, s)| serde_json::json!({"index": i, "score": s}))
                 .collect::<Vec<_>>())
         }
-        Operation::JsonParse { data } => {
-            match serde_json::from_str::<serde_json::Value>(data) {
-                Ok(v) => v,
-                Err(e) => serde_json::json!({"error": e.to_string()}),
-            }
-        }
+        Operation::JsonParse { data } => match serde_json::from_str::<serde_json::Value>(data) {
+            Ok(v) => v,
+            Err(e) => serde_json::json!({"error": e.to_string()}),
+        },
         Operation::JsonSerialize { data } => {
             serde_json::json!({"bytes": serde_json::to_string(data).unwrap_or_default()})
         }
@@ -187,9 +184,8 @@ fn topological_groups(nodes: &[DAGNode]) -> Vec<Vec<usize>> {
 ///     JSON string mapping node IDs to their result values.
 #[pyfunction]
 pub fn execute_pipeline(dag_json: &str) -> PyResult<String> {
-    let dag: DAGDefinition = serde_json::from_str(dag_json).map_err(|e| {
-        pyo3::exceptions::PyValueError::new_err(format!("Invalid DAG JSON: {e}"))
-    })?;
+    let dag: DAGDefinition = serde_json::from_str(dag_json)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid DAG JSON: {e}")))?;
 
     let groups = topological_groups(&dag.nodes);
     let mut results: HashMap<String, serde_json::Value> = HashMap::new();
@@ -205,21 +201,20 @@ pub fn execute_pipeline(dag_json: &str) -> PyResult<String> {
             let nodes_for_group: Vec<DAGNode> =
                 group.iter().map(|&i| dag.nodes[i].clone()).collect();
 
-            let group_results: Vec<(String, serde_json::Value)> =
-                RUNTIME.block_on(async {
-                    let mut handles = Vec::new();
-                    for node in nodes_for_group {
-                        handles.push(tokio::spawn(async move {
-                            let result = execute_operation(&node.op);
-                            (node.id, result)
-                        }));
-                    }
-                    let mut results = Vec::new();
-                    for handle in handles {
-                        results.push(handle.await.unwrap());
-                    }
-                    results
-                });
+            let group_results: Vec<(String, serde_json::Value)> = RUNTIME.block_on(async {
+                let mut handles = Vec::new();
+                for node in nodes_for_group {
+                    handles.push(tokio::spawn(async move {
+                        let result = execute_operation(&node.op);
+                        (node.id, result)
+                    }));
+                }
+                let mut results = Vec::new();
+                for handle in handles {
+                    results.push(handle.await.unwrap());
+                }
+                results
+            });
 
             for (id, result) in group_results {
                 results.insert(id, result);

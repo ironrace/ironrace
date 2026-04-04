@@ -1,6 +1,5 @@
 """Tests for ironrace._core.assemble_prompt."""
 
-import pytest
 
 from ironrace._core import assemble_prompt, count_tokens
 

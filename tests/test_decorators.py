@@ -1,7 +1,6 @@
 """Tests for ironrace Python SDK (decorators, compiler, types)."""
 
 import pytest
-
 from ironrace import (
     APIFetch,
     Document,
@@ -182,9 +181,9 @@ class TestCompiler:
 
     def test_compiled_dag_executable(self):
         """Compiled DAG should be directly executable by the Rust pipeline."""
-        from ironrace._core import execute_pipeline
-
         import json
+
+        from ironrace._core import execute_pipeline
 
         agents = [
             {
